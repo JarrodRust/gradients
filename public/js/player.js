@@ -176,6 +176,13 @@ function autoSubmit() {
   submitPlacements();
 }
 
+// ── Force submit (host ended round early) ────────────────────────────────────
+socket.on('forceSubmit', () => {
+  // Send whatever placements the player has so far, even if incomplete
+  const code = document.getElementById('j-code').value.trim().toUpperCase();
+  socket.emit('submitPlacements', { code, placements }, () => {});
+});
+
 // ── Round end ─────────────────────────────────────────────────────────────────
 socket.on('roundEnd', ({ round, totalRounds, words, playerResults, scoreboard, isLast }) => {
   if (!playerResults) return; // host message — ignore on player side
