@@ -88,11 +88,11 @@ function endRound(room) {
   room.phase = 'roundEnd';
 
   const scale = room.scales[room.currentRound - 1];
+  const isLast = room.currentRound >= room.settings.rounds;
 
-  // Score all submissions
-  Object.entries(room.submissions).forEach(([socketId, submission]) => {
-    const player = room.players[socketId];
-    if (!player) return;
+  // Score ALL players — use their submission if they have one, empty otherwise
+  Object.entries(room.players).forEach(([socketId, player]) => {
+    const submission = room.submissions[socketId] || {};
     let roundScore = 0;
     const wordResults = {};
     room.roundWords.forEach((w, i) => {
@@ -104,7 +104,7 @@ function endRound(room) {
     player.score += roundScore;
     player.roundScore = roundScore;
 
-    // Send personal results to each player
+    // Send personal results to every player
     io.to(socketId).emit('roundEnd', {
       round: room.currentRound,
       totalRounds: room.settings.rounds,
@@ -112,11 +112,11 @@ function endRound(room) {
       words: room.roundWords,
       playerResults: wordResults,
       scoreboard: getScoreboard(room),
-      isLast: room.currentRound >= room.settings.rounds,
+      isLast,
     });
   });
 
-  // Send results to host (no personal results, but gets full picture)
+  // Send results to host
   io.to(room.hostId).emit('roundEnd', {
     round: room.currentRound,
     totalRounds: room.settings.rounds,
@@ -124,7 +124,7 @@ function endRound(room) {
     words: room.roundWords,
     playerResults: null,
     scoreboard: getScoreboard(room),
-    isLast: room.currentRound >= room.settings.rounds,
+    isLast,
     submissionCount: Object.keys(room.submissions).length,
     playerCount: Object.keys(room.players).length,
   });
