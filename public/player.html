@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Play — Gradients</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="player-body">
+
+  <!-- JOIN -->
+  <div id="screen-join" class="screen active">
+    <div class="screen-inner narrow player-narrow">
+      <div class="logo-row">
+        <div class="logo-bar small"></div>
+        <span class="logo-text">Gradients</span>
+      </div>
+      <div class="card">
+        <h2 style="margin-bottom:.75rem">Join a game</h2>
+        <div class="field">
+          <label>Room code</label>
+          <input type="text" id="j-code" placeholder="e.g. AB12C" maxlength="5"
+            oninput="this.value=this.value.toUpperCase()"
+            autocomplete="off" autocapitalize="characters">
+        </div>
+        <div class="field">
+          <label>Your name</label>
+          <input type="text" id="j-name" placeholder="e.g. Alex" maxlength="20" autocomplete="off">
+        </div>
+        <p class="error-msg" id="j-error"></p>
+        <button class="btn btn-primary btn-wide" onclick="joinGame()">Join →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- WAITING -->
+  <div id="screen-waiting" class="screen">
+    <div class="screen-inner narrow player-narrow centered-v">
+      <div style="text-align:center;width:100%;padding:2rem 0">
+        <div class="pulse-dot"></div>
+        <h2 id="w-name" style="margin-bottom:.25rem">Hi there!</h2>
+        <p style="margin-bottom:1.25rem">Waiting for the host to start…</p>
+        <div class="player-chips" id="w-players"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PLAYING -->
+  <div id="screen-playing" class="screen">
+    <div class="screen-inner narrow player-narrow">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;position:sticky;top:0;background:#f5f4f0;padding:.75rem 0;border-bottom:1px solid #e2e0d8">
+        <div>
+          <span style="font-weight:500;font-size:14px" id="p-name">—</span>
+          <span style="font-size:13px;color:#6b6a63;margin-left:8px">Score: <strong id="p-score">0</strong></span>
+        </div>
+        <div class="timer sm" id="p-timer">90</div>
+      </div>
+      <div class="card" style="text-align:center;margin-bottom:.75rem">
+        <span class="badge badge-blue" id="p-cat" style="margin-bottom:8px;display:inline-block">—</span>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+          <span class="anchor anchor-l" id="p-left">—</span>
+          <div style="flex:1;height:2px;background:#e2e0d8;border-radius:1px"></div>
+          <span class="anchor anchor-r" id="p-right">—</span>
+        </div>
+      </div>
+      <!-- Drop zones -->
+      <div class="zones" id="p-zones">
+        <div class="zone" data-z="1"><div class="zone-num">1</div><div class="zone-words" id="dz-1"></div></div>
+        <div class="zone" data-z="2"><div class="zone-num">2</div><div class="zone-words" id="dz-2"></div></div>
+        <div class="zone" data-z="3"><div class="zone-num">3</div><div class="zone-words" id="dz-3"></div></div>
+        <div class="zone" data-z="4"><div class="zone-num">4</div><div class="zone-words" id="dz-4"></div></div>
+        <div class="zone" data-z="5"><div class="zone-num">5</div><div class="zone-words" id="dz-5"></div></div>
+      </div>
+      <p class="bank-label">Drag words into the zones above</p>
+      <div class="bank" id="p-bank"></div>
+    </div>
+    <div class="footer-bar">
+      <span class="placed-count" id="p-placed">0 of 15 placed</span>
+      <button class="btn btn-primary" style="flex:1" id="p-submit" onclick="submitPlacements()" disabled>Submit →</button>
+    </div>
+  </div>
+
+  <!-- SUBMITTED / WAITING -->
+  <div id="screen-submitted" class="screen">
+    <div class="screen-inner narrow player-narrow centered-v">
+      <div style="text-align:center;width:100%;padding:2rem 0">
+        <div class="pulse-dot"></div>
+        <h2 style="margin-bottom:.5rem">Submitted!</h2>
+        <p>Waiting for the round to end…</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROUND END -->
+  <div id="screen-roundend" class="screen">
+    <div class="screen-inner narrow player-narrow">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+        <h2 id="pre-title">Round done!</h2>
+      </div>
+      <div class="card" style="margin-bottom:.75rem">
+        <div style="display:flex;gap:8px">
+          <div style="flex:1;background:#f5f4f0;border-radius:8px;padding:10px 12px">
+            <p style="font-size:11px;font-weight:500;color:#6b6a63;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">This round</p>
+            <p style="font-size:20px;font-weight:500" id="pre-round-score">0</p>
+          </div>
+          <div style="flex:1;background:#f5f4f0;border-radius:8px;padding:10px 12px">
+            <p style="font-size:11px;font-weight:500;color:#6b6a63;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">Total</p>
+            <p style="font-size:20px;font-weight:500" id="pre-total-score">0</p>
+          </div>
+        </div>
+      </div>
+      <h3 style="margin-bottom:.5rem">Your placements</h3>
+      <div id="pre-word-results" style="display:flex;flex-direction:column;gap:4px;margin-bottom:.75rem;max-height:200px;overflow-y:auto"></div>
+      <h3 style="margin-bottom:.5rem">Scoreboard</h3>
+      <div id="pre-scoreboard" class="scoreboard"></div>
+      <p style="text-align:center;color:#9e9d96;font-size:13px;margin-top:1rem;font-style:italic" id="pre-waiting">Waiting for next round…</p>
+    </div>
+  </div>
+
+  <!-- GAME END -->
+  <div id="screen-gameend" class="screen">
+    <div class="screen-inner narrow player-narrow centered-v">
+      <div style="text-align:center;width:100%;padding:2rem 0">
+        <div style="font-size:3rem;margin-bottom:.5rem">🏆</div>
+        <h1 style="margin-bottom:.25rem">Game over!</h1>
+        <div class="scoreboard" id="pge-scoreboard" style="margin-top:1.25rem;text-align:left"></div>
+        <button class="btn btn-primary btn-wide" style="margin-top:1.5rem" onclick="location.href='/'">Play again</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="drag-ghost"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/player.js"></script>
+</body>
+</html>

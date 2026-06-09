@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Host — Gradients</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <!-- SETUP -->
+  <div id="screen-setup" class="screen active">
+    <div class="screen-inner narrow">
+      <div class="logo-row">
+        <div class="logo-bar small"></div>
+        <span class="logo-text">Gradients</span>
+        <span class="badge badge-purple">Host</span>
+      </div>
+      <div class="card">
+        <h2>Game settings</h2>
+        <div class="field">
+          <label>Year level</label>
+          <select id="s-year">
+            <option value="3">Year 3 — 5 words per round</option>
+            <option value="4">Year 4 — 10 words per round</option>
+            <option value="5" selected>Year 5 — 15 words per round</option>
+            <option value="6">Year 6+ — 15 words per round</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Rounds <span id="rounds-val" class="field-val">5</span></label>
+          <input type="range" id="s-rounds" min="1" max="10" value="5"
+            oninput="document.getElementById('rounds-val').textContent=this.value">
+        </div>
+        <div class="field" style="margin-bottom:.5rem">
+          <label>Time per round <span id="time-val" class="field-val">90s</span></label>
+          <input type="range" id="s-time" min="30" max="180" step="10" value="90"
+            oninput="document.getElementById('time-val').textContent=this.value+'s'">
+        </div>
+        <div class="pill-row">
+          <span class="pill pill-green">Correct zone — 20 pts</span>
+          <span class="pill pill-amber">One zone off — 10 pts</span>
+          <span class="pill pill-gray">Further off — 0 pts</span>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-wide btn-lg" onclick="createRoom()">Create room</button>
+    </div>
+  </div>
+
+  <!-- LOBBY -->
+  <div id="screen-lobby" class="screen">
+    <div class="screen-inner lobby-layout">
+      <div>
+        <p class="lobby-label">Room code</p>
+        <div class="lobby-code" id="lobby-code">—</div>
+        <p class="lobby-sub">Players go to <strong id="lobby-url"></strong></p>
+      </div>
+      <div style="width:100%">
+        <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px">
+          <h3>Players joined</h3>
+          <span class="badge badge-blue" id="lobby-count">0</span>
+        </div>
+        <div class="player-chips" id="lobby-players"></div>
+      </div>
+      <button class="btn btn-primary btn-wide btn-lg" id="start-btn" onclick="startGame()" disabled>
+        Waiting for players…
+      </button>
+    </div>
+  </div>
+
+  <!-- PLAYING -->
+  <div id="screen-playing" class="screen">
+    <div class="screen-inner">
+      <div class="game-header">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span class="badge badge-blue" id="g-cat">—</span>
+          <span class="badge badge-green" id="g-yr">Year 5</span>
+          <span style="font-size:13px;color:#6b6a63" id="g-round">Round 1 of 5</span>
+        </div>
+        <div class="timer" id="g-timer">90</div>
+        <button class="btn btn-danger btn-sm" onclick="endRoundEarly()">End round</button>
+      </div>
+      <div class="scale-bar">
+        <span class="anchor anchor-l" id="g-left">—</span>
+        <div class="scale-line"></div>
+        <span class="anchor anchor-r" id="g-right">—</span>
+      </div>
+      <!-- Host sees words listed, zones show submission count badges -->
+      <div class="host-word-grid" id="g-word-grid"></div>
+      <div class="submission-bar">
+        <div class="sub-track"><div class="sub-fill" id="g-sub-fill" style="width:0%"></div></div>
+        <span class="sub-label" id="g-sub-label">0 of 0 submitted</span>
+      </div>
+      <h3 style="margin:.75rem 0 .5rem">Live scores</h3>
+      <div id="g-scoreboard" class="scoreboard"></div>
+    </div>
+  </div>
+
+  <!-- ROUND END -->
+  <div id="screen-roundend" class="screen">
+    <div class="screen-inner">
+      <div class="top-bar">
+        <div>
+          <h2 id="re-title">Round 1 results</h2>
+          <p style="font-size:13px;color:#6b6a63" id="re-scale"></p>
+        </div>
+        <button class="btn btn-primary" id="re-next" onclick="nextRound()">Next round →</button>
+      </div>
+      <div class="card" style="margin-bottom:1rem">
+        <p style="font-size:11px;font-weight:500;color:#6b6a63;margin-bottom:6px">Correct answers</p>
+        <div class="answer-zones" id="re-answer-zones"></div>
+      </div>
+      <h3 style="margin-bottom:.5rem">Scoreboard</h3>
+      <div id="re-scoreboard" class="scoreboard"></div>
+    </div>
+  </div>
+
+  <!-- GAME END -->
+  <div id="screen-gameend" class="screen">
+    <div class="screen-inner narrow" style="text-align:center;padding-top:2rem">
+      <div style="font-size:3rem;margin-bottom:.5rem">🏆</div>
+      <h1 style="margin-bottom:.25rem">Final scores</h1>
+      <p style="color:#6b6a63;margin-bottom:1.5rem">Well played!</p>
+      <div id="ge-scoreboard" class="scoreboard" style="text-align:left"></div>
+      <div style="display:flex;gap:10px;margin-top:1.5rem;justify-content:center">
+        <button class="btn btn-primary btn-lg" onclick="playAgain()">Play again (same players)</button>
+        <button class="btn btn-ghost btn-lg" onclick="location.href='/'">New game</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/host.js"></script>
+</body>
+</html>
