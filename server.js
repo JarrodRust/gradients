@@ -84,6 +84,7 @@ function startRound(room) {
 }
 
 function endRound(room) {
+  if (room.phase === 'roundEnd' || room.phase === 'scoring') return; // already ending
   if (room.timer) { clearInterval(room.timer); room.timer = null; }
   room.phase = 'roundEnd';
 
@@ -188,6 +189,8 @@ io.on('connection', (socket) => {
     if (!room || (room.phase !== 'playing' && room.phase !== 'roundEnd')) return cb({ error: 'No active round.' });
     const player = room.players[socket.id];
     if (!player) return cb({ error: 'Not in this game.' });
+    // Ignore if this player has already submitted this round
+    if (room.submissions[socket.id]) return cb({ ok: true });
     room.submissions[socket.id] = placements;
     const submitted = Object.keys(room.submissions).length;
     const total = Object.keys(room.players).length;
