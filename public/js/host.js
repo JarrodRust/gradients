@@ -1,7 +1,7 @@
 const socket = io();
 let roomCode = null;
 
-const YR = { 3: 'Year 3', 4: 'Year 4', 5: 'Year 5', 6: 'Year 6+' };
+const YR = { 3: 'Plain', 4: 'Witty', 5: 'Articulate', 6: 'Eloquent' };
 
 function show(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
