@@ -1,260 +1,137 @@
-const socket = io();
-let myName = '';
-let myScore = 0;
-let currentWords = [];
-let placements = {};
-let dIdx = null;
-const ghost = document.getElementById('drag-ghost');
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Play — Gradients</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="player-body">
 
-function show(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById('screen-' + id).classList.add('active');
-}
-
-function rankClass(i) { return ['rank-1', 'rank-2', 'rank-3'][i] || ''; }
-
-// ── Join ──────────────────────────────────────────────────────────────────────
-function joinGame() {
-  const code = document.getElementById('j-code').value.trim().toUpperCase();
-  const name = document.getElementById('j-name').value.trim();
-  const err  = document.getElementById('j-error');
-  if (code.length < 4) { err.textContent = 'Enter the room code from your teacher\'s screen.'; return; }
-  if (!name)           { err.textContent = 'Enter your name.'; return; }
-  err.textContent = '';
-  socket.emit('joinRoom', { code, name }, res => {
-    if (res.error) { err.textContent = res.error; return; }
-    myName = name;
-    document.getElementById('w-name').textContent = `Hi, ${name}!`;
-    show('waiting');
-  });
-}
-
-socket.on('playerJoined', ({ players }) => {
-  document.getElementById('w-players').innerHTML =
-    players.map(n => `<span class="player-chip">${n}</span>`).join('');
-});
-socket.on('playerLeft', ({ players }) => {
-  document.getElementById('w-players').innerHTML =
-    players.map(n => `<span class="player-chip">${n}</span>`).join('');
-});
-
-// ── Round start ───────────────────────────────────────────────────────────────
-socket.on('roundStart', ({ round, totalRounds, scale, words, timeLeft }) => {
-  placements = {};
-  currentWords = words;
-  myScore = myScore; // preserved
-
-  document.getElementById('p-name').textContent = myName;
-  document.getElementById('p-cat').textContent = scale.category;
-  document.getElementById('p-left').textContent = scale.left;
-  document.getElementById('p-right').textContent = scale.right;
-  document.getElementById('p-timer').textContent = timeLeft;
-  document.getElementById('p-timer').className = 'timer sm';
-  document.getElementById('p-score').textContent = myScore;
-
-  for (let z = 1; z <= 5; z++) document.getElementById(`dz-${z}`).innerHTML = '';
-
-  const bank = document.getElementById('p-bank');
-  bank.innerHTML = '';
-  words.forEach(({ word, index }) => bank.appendChild(mkBank(word, index)));
-
-  updateProgress();
-  document.getElementById('p-submit').disabled = true;
-  show('playing');
-});
-
-socket.on('timerTick', ({ timeLeft }) => {
-  const el = document.getElementById('p-timer');
-  el.textContent = timeLeft;
-  el.className = 'timer sm' + (timeLeft <= 10 ? ' warn' : '');
-  if (timeLeft <= 0) autoSubmit();
-});
-
-// ── Tiles ─────────────────────────────────────────────────────────────────────
-function mkBank(word, idx) {
-  const t = document.createElement('span');
-  t.className = 'tile bank'; t.dataset.idx = idx;
-  t.textContent = word; t.title = word;
-  addDrag(t); return t;
-}
-function mkZone(word, idx, z) {
-  const t = document.createElement('span');
-  t.className = 'tile placed'; t.dataset.idx = idx; t.dataset.z = z;
-  t.textContent = word; t.title = word;
-  addDrag(t); return t;
-}
-function addDrag(t) {
-  t.addEventListener('mousedown', onMD);
-  t.addEventListener('touchstart', onTS, { passive: false });
-}
-
-function updateProgress() {
-  const n = Object.keys(placements).length, total = currentWords.length;
-  document.getElementById('p-placed').textContent =
-    n >= total ? `All ${total} placed ✓` : `${n} of ${total} placed`;
-  document.getElementById('p-submit').disabled = n < total;
-}
-
-function placeTile(idx, z) {
-  document.querySelector(`.zone-words [data-idx="${idx}"]`)?.remove();
-  document.querySelector(`#p-bank [data-idx="${idx}"]`)?.remove();
-  const w = currentWords.find(w => w.index === idx);
-  if (!w) return;
-  placements[idx] = z;
-  document.getElementById(`dz-${z}`).appendChild(mkZone(w.word, idx, z));
-  updateProgress();
-}
-function returnToBank(idx) {
-  document.querySelector(`.zone-words [data-idx="${idx}"]`)?.remove();
-  delete placements[idx];
-  const w = currentWords.find(w => w.index === idx);
-  if (!w) return;
-  if (!document.querySelector(`#p-bank [data-idx="${idx}"]`))
-    document.getElementById('p-bank').appendChild(mkBank(w.word, idx));
-  updateProgress();
-}
-
-// ── Drag (mouse) ──────────────────────────────────────────────────────────────
-function onMD(e) {
-  e.preventDefault();
-  dIdx = parseInt(e.currentTarget.dataset.idx);
-  startGhost(e.currentTarget.textContent, e.clientX, e.clientY);
-  e.currentTarget.classList.add('dragging');
-  document.addEventListener('mousemove', onMM);
-  document.addEventListener('mouseup', onMU);
-}
-function onMM(e) { moveGhost(e.clientX, e.clientY); hlZone(e.clientX, e.clientY); }
-function onMU(e) {
-  document.querySelector(`[data-idx="${dIdx}"]`)?.classList.remove('dragging');
-  ghost.style.display = 'none'; clearHL(); drop(e.clientX, e.clientY);
-  document.removeEventListener('mousemove', onMM);
-  document.removeEventListener('mouseup', onMU);
-}
-
-// ── Drag (touch) ──────────────────────────────────────────────────────────────
-function onTS(e) {
-  e.preventDefault();
-  dIdx = parseInt(e.currentTarget.dataset.idx);
-  const t = e.touches[0];
-  startGhost(e.currentTarget.textContent, t.clientX, t.clientY);
-  e.currentTarget.classList.add('dragging');
-  document.addEventListener('touchmove', onTM, { passive: false });
-  document.addEventListener('touchend', onTE);
-}
-function onTM(e) { e.preventDefault(); const t = e.touches[0]; moveGhost(t.clientX, t.clientY); hlZone(t.clientX, t.clientY); }
-function onTE(e) {
-  const t = e.changedTouches[0];
-  document.querySelector(`[data-idx="${dIdx}"]`)?.classList.remove('dragging');
-  ghost.style.display = 'none'; clearHL(); drop(t.clientX, t.clientY);
-  document.removeEventListener('touchmove', onTM);
-  document.removeEventListener('touchend', onTE);
-}
-
-function startGhost(txt, x, y) { ghost.textContent = txt; ghost.style.display = 'block'; moveGhost(x, y); }
-function moveGhost(x, y) { ghost.style.left = (x - 30) + 'px'; ghost.style.top = (y - 18) + 'px'; }
-function hlZone(x, y) { clearHL(); document.elementFromPoint(x, y)?.closest('.zone')?.classList.add('over'); }
-function clearHL() { document.querySelectorAll('.zone').forEach(z => z.classList.remove('over')); }
-function drop(x, y) {
-  const el = document.elementFromPoint(x, y);
-  const zone = el?.closest('.zone');
-  const bank = el?.closest('#p-bank');
-  if (zone) placeTile(dIdx, parseInt(zone.dataset.z));
-  else if (bank) returnToBank(dIdx);
-  dIdx = null;
-}
-
-// ── Submit ────────────────────────────────────────────────────────────────────
-function submitPlacements() {
-  const code = document.getElementById('j-code').value.trim().toUpperCase();
-  socket.emit('submitPlacements', { code, placements }, res => {
-    if (res.error) { alert(res.error); return; }
-    show('submitted');
-  });
-}
-function autoSubmit() {
-  currentWords.forEach(w => { if (placements[w.index] === undefined) placements[w.index] = 3; });
-  submitPlacements();
-}
-
-// ── Force submit (host ended round early) ────────────────────────────────────
-socket.on('forceSubmit', () => {
-  // Send whatever placements the player has so far, even if incomplete
-  const code = document.getElementById('j-code').value.trim().toUpperCase();
-  socket.emit('submitPlacements', { code, placements }, () => {});
-});
-
-// ── Round end ─────────────────────────────────────────────────────────────────
-socket.on('roundEnd', ({ round, totalRounds, words, playerResults, scoreboard, isLast }) => {
-  if (!playerResults) return; // host message — ignore on player side
-
-  let roundScore = 0;
-  Object.values(playerResults).forEach(r => { roundScore += r.points; });
-  myScore += roundScore;
-
-  document.getElementById('pre-title').textContent = isLast ? 'Final round done!' : `Round ${round} done!`;
-  document.getElementById('pre-round-score').textContent = roundScore;
-  document.getElementById('pre-total-score').textContent = myScore;
-  document.getElementById('pre-waiting').textContent = isLast ? 'Waiting for final scores…' : 'Waiting for next round…';
-
-  document.getElementById('pre-word-results').innerHTML = (words || []).map((w, i) => {
-    const r = playerResults?.[i];
-    if (!r) return '';
-    const cls = r.points === 20 ? 'correct' : r.points === 10 ? 'partial' : 'wrong';
-    const note = r.submittedZone === r.correctZone
-      ? `Zone ${r.correctZone} ✓`
-      : `You: zone ${r.submittedZone ?? '?'} · Correct: zone ${r.correctZone}`;
-    return `<div class="wr ${cls}">
-      <span class="wr-word">${w.w}</span>
-      <span class="wr-note">${note}</span>
-      <span class="wr-pts">${r.points === 20 ? '+20' : r.points === 10 ? '+10' : '0'}</span>
-    </div>`;
-  }).join('');
-
-  document.getElementById('pre-scoreboard').innerHTML = scoreboard.map((p, i) => `
-    <div class="score-row">
-      <div class="score-left">
-        <span class="rank-num ${rankClass(i)}">${i + 1}</span>
-        <span class="score-name">${p.name}${p.name === myName ? ' (you)' : ''}</span>
+  <!-- JOIN -->
+  <div id="screen-join" class="screen active">
+    <div class="screen-inner narrow player-narrow">
+      <div class="logo-row">
+        <div class="logo-bar small"></div>
+        <span class="logo-text">Gradients</span>
       </div>
-      <span class="score-pts">${p.score}</span>
-    </div>`).join('');
-
-  show('roundend');
-});
-
-// ── Game end ──────────────────────────────────────────────────────────────────
-socket.on('gameEnd', ({ scoreboard }) => {
-  document.getElementById('pge-scoreboard').innerHTML = scoreboard.map((p, i) => `
-    <div class="score-row">
-      <div class="score-left">
-        <span class="rank-num ${rankClass(i)}">${i + 1}</span>
-        <span class="score-name">${p.name}${p.name === myName ? ' (you)' : ''}${i === 0 ? ' 🏆' : ''}</span>
+      <div class="card">
+        <h2 style="margin-bottom:.75rem">Join a game</h2>
+        <div class="field">
+          <label>Room code</label>
+          <input type="text" id="j-code" placeholder="e.g. AB12C" maxlength="5"
+            oninput="this.value=this.value.toUpperCase()"
+            autocomplete="off" autocapitalize="characters">
+        </div>
+        <div class="field">
+          <label>Your name</label>
+          <input type="text" id="j-name" placeholder="e.g. Alex" maxlength="20" autocomplete="off">
+        </div>
+        <p class="error-msg" id="j-error"></p>
+        <button class="btn btn-primary btn-wide" onclick="joinGame()">Join →</button>
       </div>
-      <span class="score-pts">${p.score}</span>
-    </div>`).join('');
-  show('gameend');
-});
+    </div>
+  </div>
 
-// ── Play again / back to lobby ────────────────────────────────────────────────
-socket.on('backToLobby', ({ players }) => {
-  myScore = 0;
-  placements = {};
-  document.getElementById('w-players').innerHTML =
-    players.map(n => `<span class="player-chip">${n}</span>`).join('');
-  document.getElementById('w-name').textContent = `Hi, ${myName}!`;
-  show('waiting');
-});
+  <!-- WAITING -->
+  <div id="screen-waiting" class="screen">
+    <div class="screen-inner narrow player-narrow centered-v">
+      <div style="text-align:center;width:100%;padding:2rem 0">
+        <div class="pulse-dot"></div>
+        <h2 id="w-name" style="margin-bottom:.25rem">Hi there!</h2>
+        <p style="margin-bottom:1.25rem">Waiting for the host to start…</p>
+        <div class="player-chips" id="w-players"></div>
+      </div>
+    </div>
+  </div>
 
-socket.on('hostLeft', () => {
-  alert('The host has ended the game.');
-  location.href = '/';
-});
+  <!-- PLAYING -->
+  <div id="screen-playing" class="screen">
+    <div class="screen-inner narrow player-narrow">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;position:sticky;top:0;background:#f5f4f0;padding:.75rem 0;border-bottom:1px solid #e2e0d8">
+        <div>
+          <span style="font-weight:500;font-size:14px" id="p-name">—</span>
+          <span style="font-size:13px;color:#6b6a63;margin-left:8px">Score: <strong id="p-score">0</strong></span>
+        </div>
+        <div class="timer sm" id="p-timer">90</div>
+      </div>
+      <div class="card" style="text-align:center;margin-bottom:.75rem">
+        <span class="badge badge-blue" id="p-cat" style="margin-bottom:8px;display:inline-block">—</span>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+          <span class="anchor anchor-l" id="p-left">—</span>
+          <div style="flex:1;height:2px;background:#e2e0d8;border-radius:1px"></div>
+          <span class="anchor anchor-r" id="p-right">—</span>
+        </div>
+      </div>
+      <!-- Drop zones -->
+      <div class="zones" id="p-zones">
+        <div class="zone" data-z="1"><div class="zone-num">1</div><div class="zone-words" id="dz-1"></div></div>
+        <div class="zone" data-z="2"><div class="zone-num">2</div><div class="zone-words" id="dz-2"></div></div>
+        <div class="zone" data-z="3"><div class="zone-num">3</div><div class="zone-words" id="dz-3"></div></div>
+        <div class="zone" data-z="4"><div class="zone-num">4</div><div class="zone-words" id="dz-4"></div></div>
+        <div class="zone" data-z="5"><div class="zone-num">5</div><div class="zone-words" id="dz-5"></div></div>
+      </div>
+      <p class="bank-label">Drag words into the zones above</p>
+      <div class="bank" id="p-bank"></div>
+    </div>
+    <div class="footer-bar">
+      <span class="placed-count" id="p-placed">0 of 15 placed</span>
+      <button class="btn btn-primary" style="flex:1" id="p-submit" onclick="submitPlacements()" disabled>Submit →</button>
+    </div>
+  </div>
 
-// Enter key on join
-document.addEventListener('DOMContentLoaded', () => {
-  ['j-code', 'j-name'].forEach(id => {
-    document.getElementById(id)?.addEventListener('keydown', e => {
-      if (e.key === 'Enter') joinGame();
-    });
-  });
-});
+  <!-- SUBMITTED / WAITING -->
+  <div id="screen-submitted" class="screen">
+    <div class="screen-inner narrow player-narrow centered-v">
+      <div style="text-align:center;width:100%;padding:2rem 0">
+        <div class="pulse-dot"></div>
+        <h2 style="margin-bottom:.5rem">Submitted!</h2>
+        <p>Waiting for the round to end…</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROUND END -->
+  <div id="screen-roundend" class="screen">
+    <div class="screen-inner narrow player-narrow">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+        <h2 id="pre-title">Round done!</h2>
+      </div>
+      <div class="card" style="margin-bottom:.75rem">
+        <div style="display:flex;gap:8px">
+          <div style="flex:1;background:#f5f4f0;border-radius:8px;padding:10px 12px">
+            <p style="font-size:11px;font-weight:500;color:#6b6a63;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">This round</p>
+            <p style="font-size:20px;font-weight:500" id="pre-round-score">0</p>
+          </div>
+          <div style="flex:1;background:#f5f4f0;border-radius:8px;padding:10px 12px">
+            <p style="font-size:11px;font-weight:500;color:#6b6a63;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">Total</p>
+            <p style="font-size:20px;font-weight:500" id="pre-total-score">0</p>
+          </div>
+        </div>
+      </div>
+      <h3 style="margin-bottom:.5rem">Your placements</h3>
+      <div id="pre-word-results" style="display:flex;flex-direction:column;gap:4px;margin-bottom:.75rem;max-height:200px;overflow-y:auto"></div>
+      <h3 style="margin-bottom:.5rem">Scoreboard</h3>
+      <div id="pre-scoreboard" class="scoreboard"></div>
+      <p style="text-align:center;color:#9e9d96;font-size:13px;margin-top:1rem;font-style:italic" id="pre-waiting">Waiting for next round…</p>
+    </div>
+  </div>
+
+  <!-- GAME END -->
+  <div id="screen-gameend" class="screen">
+    <div class="screen-inner narrow player-narrow centered-v">
+      <div style="text-align:center;width:100%;padding:2rem 0">
+        <div style="font-size:3rem;margin-bottom:.5rem">🏆</div>
+        <h1 style="margin-bottom:.25rem">Game over!</h1>
+        <div class="scoreboard" id="pge-scoreboard" style="margin-top:1.25rem;text-align:left"></div>
+        <button class="btn btn-primary btn-wide" style="margin-top:1.5rem" onclick="location.href='/'">Play again</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="drag-ghost"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/player.js"></script>
+</body>
+</html>
