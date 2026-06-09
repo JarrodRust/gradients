@@ -181,7 +181,7 @@ socket.on('roundEnd', ({ round, totalRounds, words, playerResults, scoreboard, i
   if (!playerResults) return; // host message — ignore on player side
 
   let roundScore = 0;
-  if (playerResults) Object.values(playerResults).forEach(r => { roundScore += r.points; });
+  Object.values(playerResults).forEach(r => { roundScore += r.points; });
   myScore += roundScore;
 
   document.getElementById('pre-title').textContent = isLast ? 'Final round done!' : `Round ${round} done!`;
