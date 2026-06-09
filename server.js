@@ -87,6 +87,14 @@ function endRound(room) {
   if (room.timer) { clearInterval(room.timer); room.timer = null; }
   room.phase = 'roundEnd';
 
+  // Tell all players to immediately send whatever they have placed so far
+  io.to(room.code).emit('forceSubmit');
+
+  // Give players 1.5 seconds to respond before scoring
+  setTimeout(() => scoreAndBroadcast(room), 1500);
+}
+
+function scoreAndBroadcast(room) {
   const scale = room.scales[room.currentRound - 1];
   const isLast = room.currentRound >= room.settings.rounds;
 
@@ -176,7 +184,8 @@ io.on('connection', (socket) => {
 
   socket.on('submitPlacements', ({ code, placements }, cb) => {
     const room = rooms[code];
-    if (!room || room.phase !== 'playing') return cb({ error: 'No active round.' });
+    // Accept submissions during 'playing' or 'roundEnd' (for forceSubmit responses)
+    if (!room || (room.phase !== 'playing' && room.phase !== 'roundEnd')) return cb({ error: 'No active round.' });
     const player = room.players[socket.id];
     if (!player) return cb({ error: 'Not in this game.' });
     room.submissions[socket.id] = placements;
