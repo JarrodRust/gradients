@@ -71,7 +71,7 @@ function startRound(room) {
   io.to(room.code).emit('roundStart', {
     round: room.currentRound,
     totalRounds: room.settings.rounds,
-    scale: { category: scale.cat, left: scale.left, right: scale.right },
+    scale: { category: scale.cat, left: scale.left, lhint: scale.lhint || '', right: scale.right, rhint: scale.rhint || '' },
     words: displayWords,
     timeLeft: room.timeLeft,
   });
@@ -174,6 +174,52 @@ io.on('connection', (socket) => {
     room.players[socket.id] = { name, score: 0, roundScore: 0 };
     io.to(code).emit('playerJoined', { name, players: Object.values(room.players).map(p => p.name) });
     cb({ ok: true });
+  });
+
+  // Player rejoins after disconnect
+  socket.on('rejoinRoom', ({ code, name }, cb) => {
+    const room = rooms[code];
+    if (!room) return cb({ error: 'Room not found.' });
+
+    // Find existing player by name
+    const existingEntry = Object.entries(room.players).find(([, p]) => p.name.toLowerCase() === name.toLowerCase());
+
+    if (existingEntry) {
+      // Re-associate socket with existing player
+      const [oldSocketId, player] = existingEntry;
+      delete room.players[oldSocketId];
+      room.players[socket.id] = player;
+      // Transfer any existing submission
+      if (room.submissions[oldSocketId]) {
+        room.submissions[socket.id] = room.submissions[oldSocketId];
+        delete room.submissions[oldSocketId];
+      }
+    } else if (room.phase === 'lobby') {
+      // New player joining lobby
+      room.players[socket.id] = { name, score: 0, roundScore: 0 };
+    } else {
+      return cb({ error: 'Game in progress — your name was not found.' });
+    }
+
+    socket.join(code);
+    socket.data.roomCode = code;
+    socket.data.name = name;
+
+    // Send current game state so player can pick up where they left off
+    const scale = room.phase === 'playing' ? room.scales[room.currentRound - 1] : null;
+    cb({
+      ok: true,
+      phase: room.phase,
+      score: room.players[socket.id].score,
+      round: room.currentRound,
+      totalRounds: room.settings.rounds,
+      scale: scale ? { category: scale.cat, left: scale.left, lhint: scale.lhint || '', right: scale.right, rhint: scale.rhint || '' } : null,
+      words: scale ? room.roundWords.map((w, i) => ({ word: w.w, index: i })).sort(() => Math.random() - 0.5) : null,
+      timeLeft: room.timeLeft,
+      players: Object.values(room.players).map(p => p.name),
+    });
+
+    io.to(room.code).emit('playerJoined', { name, players: Object.values(room.players).map(p => p.name) });
   });
 
   socket.on('startGame', ({ code }) => {
