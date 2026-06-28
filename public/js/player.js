@@ -113,6 +113,7 @@ socket.on('roundStart', ({ round, totalRounds, scale, words, timeLeft }) => {
 
   updateProgress();
   document.getElementById('p-submit').disabled = true;
+  pushGameHistory(); // so back button can be intercepted
   show('playing');
 });
 
@@ -317,11 +318,31 @@ socket.on('hostLeft', () => {
   location.href = '/';
 });
 
-// Warn before navigating away mid-game
+// Warn before navigating away mid-game (covers back button AND closing tab)
+function isPlaying() {
+  return document.getElementById('screen-playing')?.classList.contains('active') ||
+         document.getElementById('screen-submitted')?.classList.contains('active');
+}
+
+// Push a history entry when the game starts so back button is interceptable
+function pushGameHistory() {
+  history.pushState({ game: true }, '');
+}
+
+// Intercept back button
+window.addEventListener('popstate', (e) => {
+  if (isPlaying()) {
+    // Push another entry to prevent actually going back
+    history.pushState({ game: true }, '');
+    if (confirm('Are you sure you want to leave the game? You may be able to rejoin.')) {
+      location.href = '/player.html';
+    }
+  }
+});
+
+// Also catch tab close / page reload
 window.addEventListener('beforeunload', (e) => {
-  const playing = document.getElementById('screen-playing')?.classList.contains('active') ||
-                  document.getElementById('screen-submitted')?.classList.contains('active');
-  if (playing) {
+  if (isPlaying()) {
     e.preventDefault();
     e.returnValue = '';
   }
@@ -340,6 +361,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
   if (location.hash === '#rejoin') {
-    show('screen-rejoin');
+    show('rejoin');
   }
 });
