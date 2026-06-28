@@ -29,6 +29,57 @@ function joinGame() {
   });
 }
 
+// ── Rejoin ───────────────────────────────────────────────────────────────────
+function rejoinGame() {
+  const code = document.getElementById('rj-code').value.trim().toUpperCase();
+  const name = document.getElementById('rj-name').value.trim();
+  const err  = document.getElementById('rj-error');
+  if (code.length < 4) { err.textContent = "Enter the room code from your teacher's screen."; return; }
+  if (!name)           { err.textContent = 'Enter your name.'; return; }
+  err.textContent = '';
+
+  socket.emit('rejoinRoom', { code, name }, res => {
+    if (res.error) { err.textContent = res.error; return; }
+    myName = name;
+    // Restore score from server
+    myScore = res.score || 0;
+
+    // Store code for later submissions
+    document.getElementById('j-code').value = code;
+
+    if (res.phase === 'playing' && res.scale && res.words) {
+      // Restore playing state
+      placements = {};
+      currentWords = res.words;
+      document.getElementById('p-name').textContent = myName;
+      document.getElementById('p-score').textContent = myScore;
+      document.getElementById('p-cat').textContent = res.scale.category;
+      document.getElementById('p-left').textContent = res.scale.left;
+      document.getElementById('p-left-hint').textContent = res.scale.lhint || '';
+      document.getElementById('p-right').textContent = res.scale.right;
+      document.getElementById('p-right-hint').textContent = res.scale.rhint || '';
+      document.getElementById('p-timer').textContent = res.timeLeft || '—';
+      document.getElementById('p-timer').className = 'timer sm';
+      for (let z = 1; z <= 5; z++) document.getElementById(`dz-${z}`).innerHTML = '';
+      const bank = document.getElementById('p-bank');
+      bank.innerHTML = '';
+      res.words.forEach(({ word, index }) => bank.appendChild(mkBank(word, index)));
+      updateProgress();
+      document.getElementById('p-submit').disabled = true;
+      show('playing');
+    } else if (res.phase === 'lobby') {
+      document.getElementById('w-name').textContent = `Hi, ${name}!`;
+      document.getElementById('w-players').innerHTML =
+        res.players.map(n => `<span class="player-chip">${n}</span>`).join('');
+      show('waiting');
+    } else {
+      // Round end or game end — just go to waiting
+      document.getElementById('w-name').textContent = `Hi, ${name}!`;
+      show('waiting');
+    }
+  });
+}
+
 socket.on('playerJoined', ({ players }) => {
   document.getElementById('w-players').innerHTML =
     players.map(n => `<span class="player-chip">${n}</span>`).join('');
@@ -47,7 +98,9 @@ socket.on('roundStart', ({ round, totalRounds, scale, words, timeLeft }) => {
   document.getElementById('p-name').textContent = myName;
   document.getElementById('p-cat').textContent = scale.category;
   document.getElementById('p-left').textContent = scale.left;
+  document.getElementById('p-left-hint').textContent = scale.lhint || '';
   document.getElementById('p-right').textContent = scale.right;
+  document.getElementById('p-right-hint').textContent = scale.rhint || '';
   document.getElementById('p-timer').textContent = timeLeft;
   document.getElementById('p-timer').className = 'timer sm';
   document.getElementById('p-score').textContent = myScore;
@@ -123,7 +176,13 @@ function onMD(e) {
   document.addEventListener('mousemove', onMM);
   document.addEventListener('mouseup', onMU);
 }
-function onMM(e) { moveGhost(e.clientX, e.clientY); hlZone(e.clientX, e.clientY); }
+let lastMove = 0;
+function onMM(e) {
+  const now = Date.now();
+  if (now - lastMove < 16) return; // throttle to ~60fps
+  lastMove = now;
+  moveGhost(e.clientX, e.clientY); hlZone(e.clientX, e.clientY);
+}
 function onMU(e) {
   document.querySelector(`[data-idx="${dIdx}"]`)?.classList.remove('dragging');
   ghost.style.display = 'none'; clearHL(); drop(e.clientX, e.clientY);
@@ -141,7 +200,13 @@ function onTS(e) {
   document.addEventListener('touchmove', onTM, { passive: false });
   document.addEventListener('touchend', onTE);
 }
-function onTM(e) { e.preventDefault(); const t = e.touches[0]; moveGhost(t.clientX, t.clientY); hlZone(t.clientX, t.clientY); }
+function onTM(e) {
+  e.preventDefault();
+  const now = Date.now();
+  if (now - lastMove < 16) return;
+  lastMove = now;
+  const t = e.touches[0]; moveGhost(t.clientX, t.clientY); hlZone(t.clientX, t.clientY);
+}
 function onTE(e) {
   const t = e.changedTouches[0];
   document.querySelector(`[data-idx="${dIdx}"]`)?.classList.remove('dragging');
@@ -189,11 +254,13 @@ socket.on('roundEnd', ({ round, totalRounds, words, playerResults, scoreboard, i
 
   let roundScore = 0;
   Object.values(playerResults).forEach(r => { roundScore += r.points; });
-  myScore += roundScore;
+  // Use server scoreboard for total score to stay in sync
+  const myEntry = scoreboard.find(p => p.name === myName);
+  const myTotal = myEntry ? myEntry.score : 0;
 
   document.getElementById('pre-title').textContent = isLast ? 'Final round done!' : `Round ${round} done!`;
   document.getElementById('pre-round-score').textContent = roundScore;
-  document.getElementById('pre-total-score').textContent = myScore;
+  document.getElementById('pre-total-score').textContent = myTotal;
   document.getElementById('pre-waiting').textContent = isLast ? 'Waiting for final scores…' : 'Waiting for next round…';
 
   document.getElementById('pre-word-results').innerHTML = (words || []).map((w, i) => {
@@ -250,11 +317,29 @@ socket.on('hostLeft', () => {
   location.href = '/';
 });
 
-// Enter key on join
+// Warn before navigating away mid-game
+window.addEventListener('beforeunload', (e) => {
+  const playing = document.getElementById('screen-playing')?.classList.contains('active') ||
+                  document.getElementById('screen-submitted')?.classList.contains('active');
+  if (playing) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
+// Enter key on join / rejoin, auto-show rejoin if #rejoin in URL
 document.addEventListener('DOMContentLoaded', () => {
   ['j-code', 'j-name'].forEach(id => {
     document.getElementById(id)?.addEventListener('keydown', e => {
       if (e.key === 'Enter') joinGame();
     });
   });
+  ['rj-code', 'rj-name'].forEach(id => {
+    document.getElementById(id)?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') rejoinGame();
+    });
+  });
+  if (location.hash === '#rejoin') {
+    show('screen-rejoin');
+  }
 });
