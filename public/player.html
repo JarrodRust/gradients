@@ -8,6 +8,33 @@
 </head>
 <body class="player-body">
 
+  <!-- REJOIN -->
+  <div id="screen-rejoin" class="screen">
+    <div class="screen-inner narrow player-narrow">
+      <div class="logo-row">
+        <div class="logo-bar small"></div>
+        <span class="logo-text">Gradients</span>
+      </div>
+      <div class="card">
+        <h2 style="margin-bottom:.5rem">Rejoin game</h2>
+        <p style="margin-bottom:.75rem;font-size:14px">Enter the same room code and name you used before.</p>
+        <div class="field">
+          <label>Room code</label>
+          <input type="text" id="rj-code" placeholder="e.g. AB12C" maxlength="5"
+            oninput="this.value=this.value.toUpperCase()"
+            autocomplete="off" autocapitalize="characters">
+        </div>
+        <div class="field">
+          <label>Your name</label>
+          <input type="text" id="rj-name" placeholder="Same name as before" maxlength="20" autocomplete="off">
+        </div>
+        <p class="error-msg" id="rj-error"></p>
+        <button class="btn btn-primary btn-wide" onclick="rejoinGame()">Rejoin →</button>
+        <button class="btn btn-ghost btn-wide" style="margin-top:8px" onclick="show('screen-join')">Join a new game instead</button>
+      </div>
+    </div>
+  </div>
+
   <!-- JOIN -->
   <div id="screen-join" class="screen active">
     <div class="screen-inner narrow player-narrow">
@@ -58,9 +85,15 @@
       <div class="card" style="text-align:center;margin-bottom:.75rem">
         <span class="badge badge-blue" id="p-cat" style="margin-bottom:8px;display:inline-block">—</span>
         <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
-          <span class="anchor anchor-l" id="p-left">—</span>
+          <div style="text-align:center">
+            <span class="anchor anchor-l" id="p-left">—</span>
+            <div class="anchor-hint" id="p-left-hint"></div>
+          </div>
           <div style="flex:1;height:2px;background:#e2e0d8;border-radius:1px"></div>
-          <span class="anchor anchor-r" id="p-right">—</span>
+          <div style="text-align:center">
+            <span class="anchor anchor-r" id="p-right">—</span>
+            <div class="anchor-hint" id="p-right-hint"></div>
+          </div>
         </div>
       </div>
       <!-- Drop zones -->
