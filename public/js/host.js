@@ -58,7 +58,9 @@ socket.on('roundStart', ({ round, totalRounds, scale, words, timeLeft }) => {
   document.getElementById('g-yr').textContent = YR[parseInt(document.getElementById('s-year').value)] || 'Year 5';
   document.getElementById('g-round').textContent = `Round ${round} of ${totalRounds}`;
   document.getElementById('g-left').textContent = scale.left;
+  document.getElementById('g-left-hint').textContent = scale.lhint || '';
   document.getElementById('g-right').textContent = scale.right;
+  document.getElementById('g-right-hint').textContent = scale.rhint || '';
   document.getElementById('g-timer').textContent = timeLeft;
   document.getElementById('g-timer').className = 'timer';
   document.getElementById('g-sub-fill').style.width = '0%';
@@ -91,6 +93,8 @@ function endRoundEarly() {
 socket.on('roundEnd', ({ round, totalRounds, scale, words, scoreboard, isLast }) => {
   document.getElementById('re-title').textContent = `Round ${round} results`;
   document.getElementById('re-scale').textContent = `${scale.left} → ${scale.right}`;
+  document.getElementById('re-left-hint').textContent = scale.lhint || '';
+  document.getElementById('re-right-hint').textContent = scale.rhint || '';
 
   const byZone = [[], [], [], [], []];
   words.forEach(w => byZone[w.z - 1].push(w.w));
