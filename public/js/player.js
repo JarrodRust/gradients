@@ -93,7 +93,7 @@ socket.on('playerLeft', ({ players }) => {
 socket.on('roundStart', ({ round, totalRounds, scale, words, timeLeft }) => {
   placements = {};
   currentWords = words;
-  myScore = myScore; // preserved
+  // myScore is preserved from server via scoreboard — don't reset here
 
   document.getElementById('p-name').textContent = myName;
   document.getElementById('p-cat').textContent = scale.category;
