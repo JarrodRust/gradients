@@ -254,8 +254,14 @@ io.on('connection', (socket) => {
   socket.on('nextRound', ({ code }) => {
     const room = rooms[code];
     if (!room || room.hostId !== socket.id) return;
-    if (room.currentRound >= room.settings.rounds) endGame(room);
-    else startRound(room);
+    // Allow nextRound to trigger endGame even from roundEnd phase
+    if (room.currentRound >= room.settings.rounds) {
+      endGame(room);
+    } else {
+      // Reset phase to allow startRound
+      room.phase = 'lobby';
+      startRound(room);
+    }
   });
 
   socket.on('playAgain', ({ code, settings }, cb) => {
