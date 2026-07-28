@@ -1,5 +1,6 @@
 const socket = io();
 let roomCode = null;
+let lastScoreboard = [];
 
 const YR = { 3: 'Plain', 4: 'Witty', 5: 'Articulate', 6: 'Eloquent' };
 
@@ -65,7 +66,8 @@ socket.on('roundStart', ({ round, totalRounds, scale, words, timeLeft }) => {
   document.getElementById('g-timer').className = 'timer';
   document.getElementById('g-sub-fill').style.width = '0%';
   document.getElementById('g-sub-label').textContent = '0 of 0 submitted';
-  document.getElementById('g-scoreboard').innerHTML = '';
+  // Show current scores at round start (not blank)
+  document.getElementById('g-scoreboard').innerHTML = renderScoreboard(lastScoreboard);
 
   document.getElementById('g-word-grid').innerHTML =
     words.map(w => `<span class="host-chip">${w.word}</span>`).join('');
@@ -104,7 +106,9 @@ socket.on('roundEnd', ({ round, totalRounds, scale, words, scoreboard, isLast })
       ${ws.map(w => `<span class="answer-chip" data-z="${i + 1}">${w}</span>`).join('')}
     </div>`).join('');
 
+  lastScoreboard = scoreboard;
   document.getElementById('re-scoreboard').innerHTML = renderScoreboard(scoreboard);
+  document.getElementById('g-scoreboard').innerHTML = renderScoreboard(scoreboard);
   document.getElementById('re-next').textContent = isLast ? 'Final scores →' : 'Next round →';
   show('roundend');
 });
