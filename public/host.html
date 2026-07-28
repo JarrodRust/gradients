@@ -81,11 +81,17 @@
         <button class="btn btn-danger btn-sm" onclick="endRoundEarly()">End round</button>
       </div>
       <div class="scale-bar">
-        <span class="anchor anchor-l" id="g-left">—</span>
+        <div style="text-align:center;min-width:90px;max-width:140px">
+          <span class="anchor anchor-l" id="g-left">—</span>
+          <div class="anchor-hint" id="g-left-hint"></div>
+        </div>
         <div class="scale-line"></div>
-        <span class="anchor anchor-r" id="g-right">—</span>
+        <div style="text-align:center;min-width:90px;max-width:140px">
+          <span class="anchor anchor-r" id="g-right">—</span>
+          <div class="anchor-hint" id="g-right-hint"></div>
+        </div>
       </div>
-      <!-- Host sees words listed, zones show submission count badges -->
+      <!-- Words for this round -->
       <div class="host-word-grid" id="g-word-grid"></div>
       <div class="submission-bar">
         <div class="sub-track"><div class="sub-fill" id="g-sub-fill" style="width:0%"></div></div>
