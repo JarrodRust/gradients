@@ -55,6 +55,9 @@ function createRoom(code, settings) {
 }
 
 function startRound(room) {
+  // Always clear any existing timer before starting a new one
+  if (room.timer) { clearInterval(room.timer); room.timer = null; }
+
   room.currentRound++;
   room.phase = 'playing';
   room.submissions = {};
@@ -99,7 +102,8 @@ function scoreAndBroadcast(room) {
   const scale = room.scales[room.currentRound - 1];
   const isLast = room.currentRound >= room.settings.rounds;
 
-  // Score ALL players — use their submission if they have one, empty otherwise
+  // Step 1: Score ALL players first so scoreboard is complete before anyone is notified
+  const allWordResults = {};
   Object.entries(room.players).forEach(([socketId, player]) => {
     const submission = room.submissions[socketId] || {};
     let roundScore = 0;
@@ -112,15 +116,20 @@ function scoreAndBroadcast(room) {
     });
     player.score += roundScore;
     player.roundScore = roundScore;
+    allWordResults[socketId] = wordResults;
+  });
 
-    // Send personal results to every player
+  // Step 2: Now scoreboard is accurate — send to everyone
+  const scoreboard = getScoreboard(room);
+
+  Object.entries(room.players).forEach(([socketId]) => {
     io.to(socketId).emit('roundEnd', {
       round: room.currentRound,
       totalRounds: room.settings.rounds,
       scale: { left: scale.left, right: scale.right },
       words: room.roundWords,
-      playerResults: wordResults,
-      scoreboard: getScoreboard(room),
+      playerResults: allWordResults[socketId],
+      scoreboard,
       isLast,
     });
   });
@@ -132,7 +141,7 @@ function scoreAndBroadcast(room) {
     scale: { left: scale.left, right: scale.right, category: scale.cat },
     words: room.roundWords,
     playerResults: null,
-    scoreboard: getScoreboard(room),
+    scoreboard,
     isLast,
     submissionCount: Object.keys(room.submissions).length,
     playerCount: Object.keys(room.players).length,
