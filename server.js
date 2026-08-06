@@ -4,6 +4,15 @@ const { Server } = require('socket.io');
 const path = require('path');
 const SCALES = require('./data/scales');
 
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
@@ -16,7 +25,7 @@ function pickWords(scale) {
   scale.words.forEach(w => byZone[w.z - 1].push(w));
   const selected = [];
   for (let z = 0; z < 5; z++) {
-    const pool = [...byZone[z]].sort(() => Math.random() - 0.5);
+    const pool = shuffle(byZone[z]);
     selected.push(...pool.slice(0, 3));
   }
   return selected;
@@ -36,7 +45,7 @@ const rooms = {};
 function createRoom(code, settings) {
   const yr = settings.year || 5;
   const pool = SCALES[yr] || SCALES[5];
-  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  const shuffled = shuffle(pool);
   const scales = [];
   while (scales.length < settings.rounds) scales.push(...shuffled);
   return {
@@ -67,7 +76,7 @@ function startRound(room) {
   room.roundWords = pickWords(scale);
 
   const displayWords = room.roundWords.map((w, i) => ({ word: w.w, index: i }))
-    .sort(() => Math.random() - 0.5);
+    // shuffled above
 
   room.timeLeft = room.settings.roundTime;
 
@@ -223,7 +232,7 @@ io.on('connection', (socket) => {
       round: room.currentRound,
       totalRounds: room.settings.rounds,
       scale: scale ? { category: scale.cat, left: scale.left, lhint: scale.lhint || '', right: scale.right, rhint: scale.rhint || '' } : null,
-      words: scale ? room.roundWords.map((w, i) => ({ word: w.w, index: i })).sort(() => Math.random() - 0.5) : null,
+      words: scale ? shuffle(room.roundWords.map((w, i) => ({ word: w.w, index: i }))) : null,
       timeLeft: room.timeLeft,
       players: Object.values(room.players).map(p => p.name),
     });
@@ -279,7 +288,7 @@ io.on('connection', (socket) => {
     Object.values(room.players).forEach(p => { p.score = 0; p.roundScore = 0; });
     const yr = settings.year || room.settings.year;
     const pool = SCALES[yr] || SCALES[5];
-    const shuffled = [...pool].sort(() => Math.random() - 0.5);
+    const shuffled = shuffle(pool);
     const scales = [];
     while (scales.length < settings.rounds) scales.push(...shuffled);
     room.settings = { rounds: settings.rounds, roundTime: settings.roundTime, year: yr };
